@@ -136,6 +136,9 @@ const extractFirstVideoFrame = (file: File) => new Promise<File>((resolve, rejec
   const video = document.createElement('video')
   const objectUrl = URL.createObjectURL(file)
   let settled = false
+  let metadataReady = false
+  let seekStarted = false
+  let captureScheduled = false
   const finish = (cover?: File, error?: Error) => {
     if (settled) return
     settled = true
@@ -147,36 +150,72 @@ const extractFirstVideoFrame = (file: File) => new Promise<File>((resolve, rejec
     if (cover) resolve(cover)
     else reject(error || new Error('Không thể đọc frame đầu tiên của video.'))
   }
-  const timeout = window.setTimeout(() => finish(undefined, new Error('Đọc video quá thời gian.')), 10000)
+  const timeout = window.setTimeout(() => finish(undefined, new Error('Không lấy được frame video. Thử MP4 hoặc chọn ảnh bìa thủ công.')), 20000)
   video.muted = true
   video.playsInline = true
   video.preload = 'auto'
-  video.onloadeddata = () => {
-    if (!video.videoWidth || !video.videoHeight) {
-      finish(undefined, new Error('Video không có frame hình ảnh.'))
-      return
-    }
-    const canvas = document.createElement('canvas')
-    const scale = Math.min(1, 1280 / video.videoWidth, 1280 / video.videoHeight)
-    canvas.width = Math.round(video.videoWidth * scale)
-    canvas.height = Math.round(video.videoHeight * scale)
-    const context = canvas.getContext('2d')
-    if (!context) {
-      finish(undefined, new Error('Không thể tạo ảnh bìa từ video.'))
-      return
-    }
-    context.drawImage(video, 0, 0, canvas.width, canvas.height)
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        finish(undefined, new Error('Không thể xuất frame video thành ảnh.'))
+  video.setAttribute('webkit-playsinline', 'true')
+
+  const captureFrame = () => {
+    if (settled || captureScheduled || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
+    captureScheduled = true
+    const draw = () => {
+      if (settled) return
+      captureScheduled = false
+      if (!video.videoWidth || !video.videoHeight) {
+        finish(undefined, new Error('Video không có frame hình ảnh.'))
         return
       }
-      const baseName = file.name.replace(/\.[^.]+$/, '')
-      finish(new File([blob], `${baseName}-cover.jpg`, { type: 'image/jpeg' }))
-    }, 'image/jpeg', 0.88)
+      const canvas = document.createElement('canvas')
+      const scale = Math.min(1, 1280 / video.videoWidth, 1280 / video.videoHeight)
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+      const context = canvas.getContext('2d')
+      if (!context) {
+        finish(undefined, new Error('Không thể tạo ảnh bìa từ video.'))
+        return
+      }
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob((blob) => {
+        if (!blob || blob.size === 0) {
+          finish(undefined, new Error('Không thể xuất frame video thành ảnh.'))
+          return
+        }
+        const baseName = file.name.replace(/\.[^.]+$/, '')
+        finish(new File([blob], `${baseName}-cover.jpg`, { type: 'image/jpeg' }))
+      }, 'image/jpeg', 0.88)
+    }
+
+    if ('requestVideoFrameCallback' in video) {
+      video.requestVideoFrameCallback(() => draw())
+    } else {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(draw))
+    }
   }
-  video.onerror = () => finish(undefined, new Error('Định dạng video không được hỗ trợ.'))
+
+  video.onloadedmetadata = () => {
+    metadataReady = true
+    const targetTime = Number.isFinite(video.duration) && video.duration > 0.2
+      ? Math.min(0.1, video.duration / 2)
+      : 0
+    if (targetTime > 0) {
+      seekStarted = true
+      try {
+        video.currentTime = targetTime
+      } catch {
+        captureFrame()
+      }
+    } else {
+      captureFrame()
+    }
+  }
+  video.onseeked = () => captureFrame()
+  video.onloadeddata = () => {
+    if (metadataReady && !seekStarted) captureFrame()
+  }
+  video.onerror = () => finish(undefined, new Error('Không đọc được video. Thử MP4 hoặc chọn ảnh bìa thủ công.'))
   video.src = objectUrl
+  video.load()
 })
 
 const uploadFileToStorage = async (
