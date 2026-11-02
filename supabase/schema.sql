@@ -134,20 +134,30 @@ create policy "Authenticated users read tracks" on public.tracks
   for select using (auth.uid() is not null);
 
 drop policy if exists "Admins insert tracks" on public.tracks;
-create policy "Admins insert tracks" on public.tracks
+drop policy if exists "Users insert own tracks" on public.tracks;
+create policy "Users insert own tracks" on public.tracks
   for insert with check (
     auth.uid() = user_id
-    and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
   );
 
 drop policy if exists "Admins update tracks" on public.tracks;
-create policy "Admins update tracks" on public.tracks
-  for update using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+drop policy if exists "Users update own tracks" on public.tracks;
+create policy "Users update own tracks" on public.tracks
+  for update using (
+    auth.uid() = user_id
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  ) with check (
+    auth.uid() = user_id
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 drop policy if exists "Admins delete tracks" on public.tracks;
-create policy "Admins delete tracks" on public.tracks
-  for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+drop policy if exists "Users delete own tracks" on public.tracks;
+create policy "Users delete own tracks" on public.tracks
+  for delete using (
+    auth.uid() = user_id
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 drop policy if exists "Users manage own albums" on public.albums;
 create policy "Users manage own albums" on public.albums
@@ -172,28 +182,36 @@ create policy "Authenticated users read music files" on storage.objects
 
 drop policy if exists "Users upload own music files" on storage.objects;
 drop policy if exists "Admins upload music files" on storage.objects;
-create policy "Admins upload music files" on storage.objects
+create policy "Users upload own music files" on storage.objects
   for insert with check (
     bucket_id = 'music'
     and (storage.foldername(name))[1] = auth.uid()::text
-    and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
   );
 
 drop policy if exists "Users update own music files" on storage.objects;
 drop policy if exists "Admins update music files" on storage.objects;
-create policy "Admins update music files" on storage.objects
+create policy "Users update own music files" on storage.objects
   for update using (
     bucket_id = 'music'
-    and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    and (
+      (storage.foldername(name))[1] = auth.uid()::text
+      or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    )
   ) with check (
     bucket_id = 'music'
-    and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    and (
+      (storage.foldername(name))[1] = auth.uid()::text
+      or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    )
   );
 
 drop policy if exists "Users delete own music files" on storage.objects;
 drop policy if exists "Admins delete music files" on storage.objects;
-create policy "Admins delete music files" on storage.objects
+create policy "Users delete own music files" on storage.objects
   for delete using (
     bucket_id = 'music'
-    and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    and (
+      (storage.foldername(name))[1] = auth.uid()::text
+      or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    )
   );

@@ -76,6 +76,7 @@ type Song = {
   mediaType?: 'audio' | 'video'
   audioPath?: string
   coverPath?: string
+  ownerId?: string
   liked?: boolean
   plays: string
   uploaded?: boolean
@@ -475,6 +476,7 @@ function App() {
           audio: audioResult.data?.signedUrl || '',
           audioPath: track.audio_path,
           coverPath: track.cover_path,
+          ownerId: track.user_id,
           mediaType: track.media_type === 'video' ? 'video' : 'audio',
           liked: likedIds.has(String(track.id)),
           plays: track.plays,
@@ -598,7 +600,7 @@ function App() {
   }
 
   const saveUpload = async () => {
-    if (!uploadFile || !uploadTitle.trim() || !userId || userRole !== 'admin') return
+    if (!uploadFile || !uploadTitle.trim() || !userId) return
     setUploading(true)
     setUploadProgress(uploadFile.size > 6 * 1024 * 1024 ? 0 : null)
     setUploadStatus(uploadFile.size > 6 * 1024 * 1024 ? 'Đang tải file nhạc...' : 'Đang tải lên...')
@@ -651,6 +653,7 @@ function App() {
         audio: audioSigned.signedUrl,
         audioPath,
         coverPath,
+        ownerId: userId,
         mediaType: data.media_type === 'video' ? 'video' : 'audio',
         plays: data.plays,
         uploaded: true,
@@ -754,7 +757,7 @@ function App() {
   const saveSongEdit = async (event: React.FormEvent) => {
     event.preventDefault()
     const song = songs.find((item) => item.id === editingSongId)
-    if (!song || typeof song.id !== 'string' || !userId || userRole !== 'admin') return
+    if (!song || typeof song.id !== 'string' || !userId || (userRole !== 'admin' && song.ownerId !== userId)) return
     let coverUrl = song.cover
     let coverPath = song.coverPath || ''
     if (editSongCoverFile) {
@@ -790,8 +793,8 @@ function App() {
   }
 
   const deleteSong = async (id: number | string) => {
-    if (userRole !== 'admin') return
     const song = songs.find((item) => item.id === id)
+    if (!song || (userRole !== 'admin' && song.ownerId !== userId)) return
     if (typeof id === 'string') {
       const { error } = await supabase.from('tracks').delete().eq('id', id)
       if (error) {
@@ -926,9 +929,7 @@ function App() {
               <button className="primary-action" onClick={() => setActiveNav('Thư viện')}>
                 <Icon name="library" size={18} /> Mở thư viện
               </button>
-              {userRole === 'admin'
-                ? <button className="secondary-action" onClick={() => setUploadOpen(true)}><Icon name="upload" size={18} /> Tải nhạc lên</button>
-                : <button className="secondary-action" onClick={() => setActiveNav('Tìm kiếm')}><Icon name="search" size={18} /> Tìm nhạc</button>}
+              <button className="secondary-action" onClick={() => setUploadOpen(true)}><Icon name="upload" size={18} /> Tải nhạc lên</button>
             </div>
           </div>
           <div className="hero-index">01 <span>/ 05</span></div>
@@ -1026,7 +1027,7 @@ function App() {
                       <span className="compact-duration">{formatTime(song.duration)}</span>
                       <button className={song.liked ? 'liked' : ''} onClick={() => toggleLike(song.id)}><Icon name="heart" size={17} fill={song.liked} /></button>
                     </div>
-                  )) : <div className="empty-state"><span><Icon name="music" size={26} /></span><h3>Thư viện đang trống</h3><p>{userRole === 'admin' ? 'Tải nhạc lên để thêm bài hát vào thư viện.' : 'Nhạc mới sẽ xuất hiện tại đây khi được quản trị viên thêm vào.'}</p>{userRole === 'admin' && <button onClick={() => setUploadOpen(true)}>Tải nhạc lên</button>}</div>}
+                  )) : <div className="empty-state"><span><Icon name="music" size={26} /></span><h3>Thư viện đang trống</h3><p>Tải nhạc lên để thêm bài hát vào thư viện.</p><button onClick={() => setUploadOpen(true)}>Tải nhạc lên</button></div>}
                 </div>
               </div>
             ) : (
@@ -1086,7 +1087,7 @@ function App() {
                     <span className="compact-index">{(index + 1).toString().padStart(2, '0')}</span>
                     <span className="compact-duration">{formatTime(song.duration)}</span>
                     <button className={song.liked ? 'liked' : ''} onClick={() => toggleLike(song.id)}><Icon name="heart" size={17} fill={song.liked} /></button>
-                    {song.uploaded && userRole === 'admin' ? <div className="item-menu-wrap">
+                    {song.uploaded && (userRole === 'admin' || song.ownerId === userId) ? <div className="item-menu-wrap">
                       <button onClick={() => setSongMenuId(songMenuId === song.id ? null : song.id)} aria-label="Quản lý bài hát"><Icon name="more" size={18} /></button>
                       {songMenuId === song.id && <div className="item-action-menu">
                         <button onClick={() => openSongEditor(song)}><Icon name="edit" size={14} /> Sửa thông tin</button>
@@ -1122,11 +1123,11 @@ function App() {
               <div><strong>{songs.filter((song) => song.uploaded).length}</strong><span>Đã tải lên</span></div>
             </div>
             <div className="profile-actions-stack">
-              {userRole === 'admin' && <button className="profile-upload-banner" onClick={() => loggedIn && setUploadOpen(true)}>
+              <button className="profile-upload-banner" onClick={() => loggedIn && setUploadOpen(true)}>
                 <span className="profile-upload-icon"><Icon name="upload" size={23} /></span>
                 <span><strong>Tải nhạc của bạn lên</strong><small>Thêm file MP3, WAV hoặc M4A vào thư viện cá nhân</small></span>
                 <span className="profile-upload-action">Chọn file <Icon name="chevron" size={15} /></span>
-              </button>}
+              </button>
             </div>
             <div className="profile-layout">
               <div className="profile-form-card">
@@ -1179,7 +1180,7 @@ function App() {
         </div>
       </footer>}
 
-      {loggedIn && userRole === 'admin' && uploadOpen && (
+      {loggedIn && uploadOpen && (
         <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && closeUpload()}>
           <div className="upload-modal" role="dialog" aria-modal="true" aria-labelledby="upload-title">
             <button className="modal-close" onClick={closeUpload} aria-label="Đóng"><Icon name="x" size={20} /></button>
