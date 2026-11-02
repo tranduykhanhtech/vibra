@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Vibra</string>
+    <string name="title_activity_main">Vibra</string>
+    <string name="package_name">com.vibra.musicplayer</string>
+    <string name="custom_url_scheme">com.vibra.musicplayer</string>
+</resources>

@@ -1,0 +1,10 @@
+{
+  "description": "Nghe nhạc trực tuyến và tải lên các bài hát yêu thích để dễ dàng lưu trữ, quản lý và thưởng thức bộ sưu tập nhạc cá nhân.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

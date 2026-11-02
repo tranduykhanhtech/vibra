@@ -1,0 +1,22 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="16" fill="#171123"/>
+  <rect x="8" y="8" width="48" height="48" rx="12" stroke="#EBEBEB" stroke-opacity=".14"/>
+  <g fill="#A663CC">
+    <rect x="15" y="25" width="6" height="14" rx="3">
+      <animate attributeName="y" values="25;18;27;25" dur="1.05s" repeatCount="indefinite"/>
+      <animate attributeName="height" values="14;28;10;14" dur="1.05s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="24" y="14" width="6" height="36" rx="3">
+      <animate attributeName="y" values="14;24;17;14" dur=".82s" repeatCount="indefinite"/>
+      <animate attributeName="height" values="36;16;30;36" dur=".82s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="33" y="20" width="6" height="24" rx="3">
+      <animate attributeName="y" values="20;13;26;20" dur=".94s" repeatCount="indefinite"/>
+      <animate attributeName="height" values="24;38;12;24" dur=".94s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="42" y="27" width="6" height="10" rx="3">
+      <animate attributeName="y" values="27;21;29;27" dur=".7s" repeatCount="indefinite"/>
+      <animate attributeName="height" values="10;22;6;10" dur=".7s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+</svg>
