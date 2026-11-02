@@ -168,11 +168,17 @@ create policy "Users manage own likes" on public.user_likes
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('music', 'music', false, 524288000, array['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/flac', 'video/mp4', 'video/x-m4v', 'video/quicktime', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'])
+values ('music', 'music', false, 524288000, array['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/wav', 'audio/wave', 'audio/vnd.wave', 'audio/x-wav', 'audio/x-pn-wav', 'audio/ogg', 'audio/flac', 'video/mp4', 'video/x-m4v', 'video/quicktime', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do update set
   public = false,
   file_size_limit = 524288000,
   allowed_mime_types = excluded.allowed_mime_types;
+
+update storage.objects
+set metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{mimetype}', '"audio/wav"'::jsonb, true)
+where bucket_id = 'music'
+  and (lower(name) like '%.wav' or lower(name) like '%.wave')
+  and coalesce(metadata ->> 'mimetype', '') <> 'audio/wav';
 
 drop policy if exists "Public can read music files" on storage.objects;
 drop policy if exists "Users read own music files" on storage.objects;

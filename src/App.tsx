@@ -109,12 +109,28 @@ const formatTime = (seconds: number) => {
 const isVideoFile = (file: File) => file.type.startsWith('video/') || /\.(mp4|m4v|mov|webm)$/i.test(file.name)
 const getMediaType = (file: File) => isVideoFile(file) ? 'video' : 'audio'
 const getMediaContentType = (file: File) => {
-  if (file.type) return file.type
   const extension = file.name.split('.').pop()?.toLowerCase()
+  if (extension === 'wav' || extension === 'wave') return 'audio/wav'
+  if (file.type) return file.type
   if (extension === 'mov') return 'video/quicktime'
   if (extension === 'webm') return 'video/webm'
   if (isVideoFile(file)) return 'video/mp4'
-  return extension === 'mp3' ? 'audio/mpeg' : undefined
+  if (extension === 'mp3') return 'audio/mpeg'
+  if (extension === 'm4a') return 'audio/mp4'
+  if (extension === 'aac') return 'audio/aac'
+  if (extension === 'ogg' || extension === 'oga') return 'audio/ogg'
+  if (extension === 'flac') return 'audio/flac'
+  return undefined
+}
+
+const getPlaybackErrorMessage = (media: HTMLMediaElement) => {
+  if (media.error?.code === MediaError.MEDIA_ERR_DECODE) {
+    return 'Thiết bị không giải mã được file WAV này. Hãy thử WAV PCM 16-bit hoặc chuyển sang MP3.'
+  }
+  if (media.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+    return 'Định dạng hoặc codec âm thanh này không được hỗ trợ trên thiết bị. Với WAV, hãy dùng PCM 16-bit hoặc MP3.'
+  }
+  return 'Không phát được file âm thanh. Kiểm tra file rồi thử lại.'
 }
 
 const readMediaDuration = (file: File) => new Promise<number>((resolve) => {
@@ -512,9 +528,18 @@ function App() {
   useEffect(() => {
     const media = current?.mediaType === 'video' ? videoRef.current : audioRef.current
     if (!media) return
-    if (playing) media.play().catch(() => setPlaying(false))
+    if (playing) media.play().catch((error: unknown) => {
+      setPlaying(false)
+      if (media.error) setStatusMessage(getPlaybackErrorMessage(media))
+      else if (error instanceof Error && error.name !== 'NotAllowedError') setStatusMessage('Không thể bắt đầu phát file này trên thiết bị.')
+    })
     else media.pause()
   }, [playing, currentId, current?.mediaType])
+
+  const handlePlaybackError = (media: HTMLMediaElement) => {
+    setPlaying(false)
+    setStatusMessage(getPlaybackErrorMessage(media))
+  }
 
   const chooseSong = (id: number | string) => {
     if (id === currentId) setPlaying((value) => !value)
@@ -1150,8 +1175,8 @@ function App() {
 
       {current && <footer className="player">
         {current.mediaType === 'video'
-          ? <video ref={videoRef} className="audio-only-video" src={current.audio} playsInline preload="metadata" onTimeUpdate={onTimeUpdate} onEnded={() => skip(1)} />
-          : <audio ref={audioRef} src={current.audio} onTimeUpdate={onTimeUpdate} onEnded={() => skip(1)} />}
+          ? <video ref={videoRef} className="audio-only-video" src={current.audio} playsInline preload="metadata" onTimeUpdate={onTimeUpdate} onEnded={() => skip(1)} onError={(event) => handlePlaybackError(event.currentTarget)} />
+          : <audio ref={audioRef} src={current.audio} onTimeUpdate={onTimeUpdate} onEnded={() => skip(1)} onError={(event) => handlePlaybackError(event.currentTarget)} />}
         <div className="now-playing">
           <img src={current.cover} alt={`Bìa bài hát ${current.title}`} />
           <div><strong>{current.title}</strong><span>{current.artist}</span></div>
